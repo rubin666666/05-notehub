@@ -1,13 +1,13 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import css from './NoteForm.module.css';
-import type { CreateNoteParams } from '../../services/noteService';
+import { createNote } from '../../services/noteService';
 import type { NoteTag } from '../../types/note';
 
 interface NoteFormProps {
-  onSubmit: (values: CreateNoteParams) => Promise<void>;
   onCancel: () => void;
-  isSubmitting: boolean;
+  onSuccess: () => void;
 }
 
 interface NoteFormValues {
@@ -36,17 +36,26 @@ const initialValues: NoteFormValues = {
 };
 
 export default function NoteForm({
-  onSubmit,
   onCancel,
-  isSubmitting,
+  onSuccess,
 }: NoteFormProps) {
+  const queryClient = useQueryClient();
+
+  const createNoteMutation = useMutation({
+    mutationFn: createNote,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notes'] });
+      onSuccess();
+    },
+  });
+
   return (
     <Formik<NoteFormValues>
       initialValues={initialValues}
       validationSchema={validationSchema}
       validateOnMount
       onSubmit={async (values, actions) => {
-        await onSubmit(values);
+        await createNoteMutation.mutateAsync(values);
         actions.resetForm();
       }}
     >
@@ -97,7 +106,7 @@ export default function NoteForm({
             <button
               type="submit"
               className={css.submitButton}
-              disabled={isSubmitting || !isValid || !dirty}
+              disabled={createNoteMutation.isPending || !isValid || !dirty}
             >
               Create note
             </button>

@@ -1,10 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from 'react';
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useDebouncedCallback } from 'use-debounce';
 import NoteForm from '../NoteForm/NoteForm';
 import NoteList from '../NoteList/NoteList';
@@ -12,17 +7,11 @@ import Modal from '../Modal/Modal';
 import Pagination from '../Pagination/Pagination';
 import SearchBox from '../SearchBox/SearchBox';
 import css from './App.module.css';
-import {
-  createNote,
-  deleteNote,
-  fetchNotes,
-  type CreateNoteParams,
-} from '../../services/noteService';
+import { fetchNotes } from '../../services/noteService';
 
 const NOTES_PER_PAGE = 12;
 
 export default function App() {
-  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,21 +38,6 @@ export default function App() {
     placeholderData: keepPreviousData,
   });
 
-  const createNoteMutation = useMutation({
-    mutationFn: createNote,
-    onSuccess: async () => {
-      setPage(1);
-      await queryClient.invalidateQueries({ queryKey: ['notes'] });
-    },
-  });
-
-  const deleteNoteMutation = useMutation({
-    mutationFn: deleteNote,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['notes'] });
-    },
-  });
-
   const notes = data?.notes ?? [];
   const totalPages = data?.totalPages ?? 0;
 
@@ -73,15 +47,6 @@ export default function App() {
     setSearchInput(nextValue);
     setPage(1);
     updateSearchQuery(nextValue.trim());
-  };
-
-  const handleCreateNote = async (values: CreateNoteParams) => {
-    await createNoteMutation.mutateAsync(values);
-    setIsModalOpen(false);
-  };
-
-  const handleDeleteNote = async (noteId: string) => {
-    await deleteNoteMutation.mutateAsync(noteId);
   };
 
   return (
@@ -106,13 +71,7 @@ export default function App() {
 
       {isLoading && <p>Loading notes...</p>}
       {isError && <p>{(error as Error).message}</p>}
-      {!isLoading && !isError && notes.length > 0 && (
-        <NoteList
-          notes={notes}
-          onDelete={handleDeleteNote}
-          deletingNoteId={deleteNoteMutation.variables}
-        />
-      )}
+      {!isLoading && !isError && notes.length > 0 && <NoteList notes={notes} />}
       {!isLoading && !isError && notes.length === 0 && <p>No notes found.</p>}
       {isFetching && !isLoading && <p>Updating notes...</p>}
 
@@ -120,8 +79,10 @@ export default function App() {
         <Modal onClose={() => setIsModalOpen(false)}>
           <NoteForm
             onCancel={() => setIsModalOpen(false)}
-            onSubmit={handleCreateNote}
-            isSubmitting={createNoteMutation.isPending}
+            onSuccess={() => {
+              setPage(1);
+              setIsModalOpen(false);
+            }}
           />
         </Modal>
       )}
