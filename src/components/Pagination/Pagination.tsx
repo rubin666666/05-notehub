@@ -7,18 +7,54 @@ interface PaginationProps {
   onPageChange: (selectedPage: number) => void;
 }
 
-const ReactPaginate =
-  (
-    ReactPaginateImport as typeof ReactPaginateImport & {
-      default?: typeof ReactPaginateImport;
-    }
-  ).default ?? ReactPaginateImport;
+function unwrapModule<T>(module: T): T {
+  let current = module;
+
+  while (
+    current &&
+    typeof current === 'object' &&
+    'default' in (current as Record<string, unknown>)
+  ) {
+    current = (current as unknown as { default: T }).default;
+  }
+
+  return current;
+}
+
+const ReactPaginate = unwrapModule(ReactPaginateImport);
 
 export default function Pagination({
   currentPage,
   pageCount,
   onPageChange,
 }: PaginationProps) {
+  if (typeof ReactPaginate !== 'function') {
+    return (
+      <ul className={css.pagination}>
+        {Array.from({ length: pageCount }, (_, index) => {
+          const pageNumber = index + 1;
+
+          return (
+            <li
+              key={pageNumber}
+              className={pageNumber === currentPage ? css.active : undefined}
+            >
+              <a
+                href="#"
+                onClick={(event) => {
+                  event.preventDefault();
+                  onPageChange(pageNumber);
+                }}
+              >
+                {pageNumber}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
   return (
     <ReactPaginate
       breakLabel="..."
